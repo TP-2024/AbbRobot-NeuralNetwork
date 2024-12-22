@@ -1,0 +1,8 @@
+ikpy>=3.3.4
+matplotlib>=3.8.3
+numpy>=1.26.4
+graphviz~=0.20.3
+torch>=2.2.1
+
+scikit-learn~=1.6.0
+stable_baselines3~=2.4.0
