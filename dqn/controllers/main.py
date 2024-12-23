@@ -13,7 +13,6 @@ def initialize_supervisor():
     supervisor = Supervisor()
     timeStep = int(4 * supervisor.getBasicTimeStep())
 
-    filename = None
     with tempfile.NamedTemporaryFile(suffix='.urdf', delete=False) as file:
         filename = file.name
         file.write(supervisor.getUrdf().encode('utf-8'))
@@ -34,14 +33,15 @@ def initialize_supervisor():
             position_sensor = motor.getPositionSensor()
             position_sensor.enable(timeStep)
             motors.append(motor)
-    target_node = supervisor.getFromDef('START')
-    target_position = target_node.getPosition()
 
-    return supervisor, arm_chain, motors, target_position
+    pen = supervisor.getFromDef('PEN')
+    target_position = supervisor.getFromDef('START').getPosition()
+
+    return supervisor, arm_chain, motors, target_position, pen
 
 
-if __name__ == "__main__":
-    supervisor, arm_chain, motors, target_position = initialize_supervisor()
+def main():
+    supervisor, arm_chain, motors, target_position, pen = initialize_supervisor()
     task = input("Enter task (train/run): ").strip()
 
     print(f'Starting at {datetime.now().isoformat()}')
@@ -49,8 +49,12 @@ if __name__ == "__main__":
     print(f'MPS available: {torch.backends.mps.is_available()}')
 
     if task == "train":
-        train_dqn(supervisor, arm_chain, motors, target_position)
+        train_dqn(supervisor, arm_chain, motors, target_position, pen)
     elif task == "run":
-        run_dqn(supervisor, arm_chain, motors, target_position)
+        run_dqn(supervisor, arm_chain, motors, target_position, pen)
     else:
         print("Invalid task!")
+
+
+if __name__ == "__main__":
+    main()

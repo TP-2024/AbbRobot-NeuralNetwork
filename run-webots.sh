@@ -6,7 +6,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     source venv/bin/activate
     export QT_PLUGIN_PATH=/Applications/Webots.app/Contents/MacOS/plugins
     export WEBOTS_HOME=/Applications/Webots.app/Contents
-    /Applications/Webots.app/Contents/MacOS/webots
+    /Applications/Webots.app/Contents/MacOS/webots --batch --minimize --no-rendering --mode=fast --stdout --stderr --extern-urls
 elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OS" == "Windows_NT" ]]; then
     # Windows configuration
     source venv/Scripts/activate

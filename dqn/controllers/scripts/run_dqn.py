@@ -15,19 +15,21 @@ JOINT_LIMITS = [
 ]
 
 
-def run_dqn(supervisor, arm_chain, motors, target_position):
+def run_dqn(supervisor, arm_chain, motors, target_position, pen):
     script_dir = Path(__file__).parent.parent
 
     models_dir = script_dir / 'models'
 
     model_path = models_dir / 'best_dqn_model.pth'
 
-    env = ArmEnv(supervisor, arm_chain, motors, target_position, JOINT_LIMITS)
+    env = ArmEnv(supervisor, arm_chain, motors, target_position, JOINT_LIMITS, pen)
 
-    state_dim = len(motors)
+    state_dim = len(motors) + 3
     action_dim = len(motors) * 2
     q_network = QNetwork(state_dim, action_dim)
-    checkpoint = torch.load(str(model_path))
+    # checkpoint = torch.load(str(model_path))
+    checkpoint = torch.load(str(model_path), weights_only=True)
+
     q_network.load_state_dict(checkpoint['model_state_dict'])
 
     q_network.eval()
