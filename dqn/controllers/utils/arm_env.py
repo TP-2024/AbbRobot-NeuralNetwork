@@ -1,19 +1,63 @@
+import tempfile
+
 import numpy as np
+from ikpy.chain import Chain
+
+from controller import Supervisor
 
 
 class ArmEnv:
-    def __init__(self, supervisor, arm_chain, motors, target_position, joint_limits, pen):
+    JOINT_LIMITS = [
+        (-3.1415, 3.1415),  # Link A motor
+        (-1.5708, 2.61799),  # Link B motor
+        (-3.1415, 1.309),  # Link C motor
+        (-6.98132, 6.98132),  # Link D motor
+        (-2.18166, 2.0944),  # Link E motor
+        (-6.98132, 6.98132)  # Link F motor
+    ]
+
+    def __init__(self, supervisor, arm_chain, motors, target_position, pen):
         self.supervisor = supervisor
         self.arm_chain = arm_chain
         self.motors = motors
         self.target_position = np.array(target_position, dtype=np.float32)
         self.pen = pen
-        self.joint_limits = joint_limits
         self.time_step = int(4 * supervisor.getBasicTimeStep())
 
         self.start_dist = None
         self.acc_dist = 0.0
         self.prev_dist = None
+
+    @classmethod
+    def initialize_supervisor(cls) -> 'ArmEnv':
+        supervisor = Supervisor()
+        timeStep = int(4 * supervisor.getBasicTimeStep())
+
+        with tempfile.NamedTemporaryFile(suffix='.urdf', delete=False) as file:
+            filename = file.name
+            file.write(supervisor.getUrdf().encode('utf-8'))
+        arm_chain = Chain.from_urdf_file(filename, active_links_mask=[False, True, True, True, True, True, True, False])
+
+        motors = []
+        for link in arm_chain.links:
+            if 'motor' in link.name:
+                motor = supervisor.getDevice(link.name)
+                # Different velocities for different joints
+                if 'A' in link.name or 'B' in link.name:  # Base and shoulder joints
+                    motor.setVelocity(5.0)  # Slower for larger movements
+                elif 'C' in link.name or 'D' in link.name:  # Elbow and first wrist
+                    motor.setVelocity(7.0)  # Medium speed
+                else:  # E and F joints (wrist joints)
+                    motor.setVelocity(9.0)  # Faster for smaller movements
+
+                position_sensor = motor.getPositionSensor()
+                position_sensor.enable(timeStep)
+                motors.append(motor)
+
+        pen = supervisor.getFromDef('PEN')
+        target_position = supervisor.getFromDef('START').getPosition()
+
+        return ArmEnv(supervisor, arm_chain, motors, target_position, pen)
 
     def reset(self):
         self.supervisor.simulationResetPhysics()
@@ -22,19 +66,19 @@ class ArmEnv:
 
         # Initialize joints to a good starting position
         starting_positions = [
-            0.0,      # Base joint
-            -0.5,     # Shoulder
-            0.5,      # Elbow
-            0.0,      # Wrist 1
-            0.0,      # Wrist 2
-            0.0       # Wrist 3
+            0.0,  # Base joint
+            -0.5,  # Shoulder
+            0.5,  # Elbow
+            0.0,  # Wrist 1
+            0.0,  # Wrist 2
+            0.0  # Wrist 3
         ]
 
         for i, motor in enumerate(self.motors):
             pos = np.clip(
                 starting_positions[i],
-                self.joint_limits[i][0],
-                self.joint_limits[i][1]
+                self.JOINT_LIMITS[i][0],
+                self.JOINT_LIMITS[i][1]
             )
             motor.setPosition(pos)
 
@@ -46,7 +90,7 @@ class ArmEnv:
 
         # # Reset motor positions within joint limits
         # for joint_index, motor in enumerate(self.motors):
-        #     initial_position = (self.joint_limits[joint_index][0] + self.joint_limits[joint_index][1]) / 2
+        #     initial_position = (self.JOINT_LIMITS[joint_index][0] + self.JOINT_LIMITS[joint_index][1]) / 2
         #     motor.setPosition(initial_position)
         #
         # self.supervisor.step(self.time_step)
@@ -75,7 +119,7 @@ class ArmEnv:
             step_size = base_step
 
         new_position = current_position + direction * step_size
-        lower_limit, upper_limit = self.joint_limits[joint_index]
+        lower_limit, upper_limit = self.JOINT_LIMITS[joint_index]
         new_position = np.clip(new_position, lower_limit, upper_limit)
         self.motors[joint_index].setPosition(new_position)
         self.supervisor.step(self.time_step)
@@ -90,7 +134,7 @@ class ArmEnv:
 
         # Calculate reward components
         distance_improvement = (self.prev_dist - current_dist)  # Positive when getting closer
-        movement_efficiency = self.start_dist / (self.acc_dist + self.start_dist)  #  1 to 0 (1 is better)
+        movement_efficiency = self.start_dist / (self.acc_dist + self.start_dist)  # 1 to 0 (1 is better)
         target_proximity = 1.0 - (current_dist / self.start_dist)  # 0 to 1 (1 is better)
 
         # Add proximity bonus for very close positions
@@ -101,9 +145,9 @@ class ArmEnv:
         # Combine reward components
         reward = (
                 0.4 * distance_improvement +  # Reward for moving closer to target
-                0.3 * movement_efficiency +   # Reward for efficient movement
-                0.3 * target_proximity +      # Reward for being close to target
-                proximity_bonus               # Bonus for very close positions
+                0.3 * movement_efficiency +  # Reward for efficient movement
+                0.3 * target_proximity +  # Reward for being close to target
+                proximity_bonus  # Bonus for very close positions
         )
 
         # Penalties
@@ -132,7 +176,7 @@ class ArmEnv:
         # Normalize joint positions to [-1, 1]
         normalized_positions = []
         for i, pos in enumerate(joint_positions):
-            low, high = self.joint_limits[i]
+            low, high = self.JOINT_LIMITS[i]
             norm_pos = 2.0 * (pos - low) / (high - low) - 1.0
             normalized_positions.append(norm_pos)
 
@@ -162,7 +206,7 @@ class ArmEnv:
         # Check if any joint is at its limit
         for i, motor in enumerate(self.motors):
             pos = motor.getPositionSensor().getValue()
-            lower, upper = self.joint_limits[i]
+            lower, upper = self.JOINT_LIMITS[i]
             if abs(pos - lower) < 0.01 or abs(pos - upper) < 0.01:
                 return True
 

@@ -10,25 +10,16 @@ import torch.optim as optim
 
 from dqn.controllers.utils.arm_env import ArmEnv
 from dqn.controllers.utils.dqn_model import QNetwork
-
-JOINT_LIMITS = [
-    (-3.1415, 3.1415),  # Link A motor
-    (-1.5708, 2.61799),  # Link B motor
-    (-3.1415, 1.309),  # Link C motor
-    (-6.98132, 6.98132),  # Link D motor
-    (-2.18166, 2.0944),  # Link E motor
-    (-6.98132, 6.98132)  # Link F motor
-]
+from dqn.controllers.utils.replay_buffer import PrioritizedReplay
 
 
-def train_dqn(supervisor, arm_chain, motors, target_position, pen):
+def train_dqn():
     script_dir = Path(__file__).parent.parent
 
     models_dir = script_dir / 'models'
     os.makedirs(models_dir, exist_ok=True)
-
-    model_path = models_dir / 'best_dqn_model.pth'
-    final_model_path = models_dir / 'final_dqn_model.pth'
+    episode_model_path = models_dir / 'episode_dqn_model.pth'
+    done_model_path = models_dir / 'done_dqn_model_{episode}_{timestamp}.pth'
 
     # Set up device
     if not torch.backends.mps.is_available():
@@ -45,10 +36,10 @@ def train_dqn(supervisor, arm_chain, motors, target_position, pen):
     print(f"Using device: {device}")
 
     # Initialize environment and models
-    env = ArmEnv(supervisor, arm_chain, motors, target_position, JOINT_LIMITS, pen)
+    env = ArmEnv.initialize_supervisor()
 
-    state_dim = len(motors) + 3
-    action_dim = len(motors) * 2
+    state_dim = len(env.motors) + 3
+    action_dim = len(env.motors) * 2
 
     # Initialize networks
     q_network = QNetwork(state_dim, action_dim).to(device)
@@ -65,7 +56,6 @@ def train_dqn(supervisor, arm_chain, motors, target_position, pen):
 
     # Training metrics
     best_reward = float('-inf')
-    episodes_without_improvement = 0
 
     # training configuration
     config = {
@@ -82,7 +72,6 @@ def train_dqn(supervisor, arm_chain, motors, target_position, pen):
         'gradient_clip': 1.0
     }
     # early stopping
-    early_stopping_patience = 50
     min_improvement = 0.01
 
     replay_buffer = PrioritizedReplay(config['memory_size'])
@@ -151,6 +140,16 @@ def train_dqn(supervisor, arm_chain, motors, target_position, pen):
             state = next_state
 
             if done:
+                print(f'\nEpisode {episode}/{config["episodes"]} Done! Reward: {episode_reward}\n')
+                torch.save(
+                    {
+                        'episode': episode,
+                        'model_state_dict': q_network.state_dict(),
+                        'reward': episode_reward,
+                        'config': config
+                    }, str(done_model_path).format(episode=episode, timestamp=datetime.now().strftime("%d-%H%M%S"))
+                )
+
                 break
 
         # Post-episode updates
@@ -168,19 +167,10 @@ def train_dqn(supervisor, arm_chain, motors, target_position, pen):
                 {
                     'episode': episode,
                     'model_state_dict': q_network.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
                     'reward': episode_reward,
                     'config': config
-                }, str(model_path)
+                }, str(episode_model_path)
             )
-            episodes_without_improvement = 0
-        else:
-            episodes_without_improvement += 1
-
-        # Early stopping check
-        if episodes_without_improvement >= early_stopping_patience:
-            print(f"Early stopping triggered after {episode} episodes")
-            break
 
         # Logging
         print(
@@ -194,25 +184,3 @@ def train_dqn(supervisor, arm_chain, motors, target_position, pen):
 
     print(f"Training completed at {datetime.now().isoformat()}")
     print(f"Best reward achieved: {best_reward}")
-
-    torch.save(q_network.state_dict(), str(final_model_path))
-
-
-class PrioritizedReplay:
-    def __init__(self, capacity):
-        self.capacity = capacity
-        self.buffer = []
-        self.priorities = []
-
-    def add(self, experience, priority):
-        if len(self.buffer) >= self.capacity:
-            self.buffer.pop(0)
-            self.priorities.pop(0)
-        self.buffer.append(experience)
-        self.priorities.append(priority)
-
-    def sample(self, batch_size):
-        probs = np.array(self.priorities) / sum(self.priorities)
-        indices = np.random.choice(len(self.buffer), batch_size, p=probs)
-        samples = [self.buffer[idx] for idx in indices]
-        return zip(*samples)

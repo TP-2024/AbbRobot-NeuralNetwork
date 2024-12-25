@@ -6,7 +6,12 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     source venv/bin/activate
     export QT_PLUGIN_PATH=/Applications/Webots.app/Contents/MacOS/plugins
     export WEBOTS_HOME=/Applications/Webots.app/Contents
-    /Applications/Webots.app/Contents/MacOS/webots --batch --minimize --no-rendering --mode=fast --stdout --stderr --extern-urls
+    if [[ "$1" == "train" ]]; then
+      /Applications/Webots.app/Contents/MacOS/webots --batch --minimize --no-rendering --mode=fast --stdout --stderr --extern-urls
+    else
+      /Applications/Webots.app/Contents/MacOS/webots
+    fi
+
 elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OS" == "Windows_NT" ]]; then
     # Windows configuration
     source venv/Scripts/activate
