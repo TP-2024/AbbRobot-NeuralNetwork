@@ -8,14 +8,15 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/tables/protos/Table.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/OldSteel.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/GalvanizedMetal.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/conveyors/protos/ConveyorBelt.proto"
 
 WorldInfo {
   basicTimeStep 16
 }
 Viewpoint {
   fieldOfView 0.85
-  orientation 0.36388158936289444 -0.3821716879842961 -0.8494321572827153 4.788902622679304
-  position -7.819525508577822 -6.297196259507071 6.207944201919923
+  orientation 0.0711033430117866 0.0415622863669532 -0.9966026745722186 4.936646331987227
+  position -5.625047632414807 -9.915529572618627 2.2824815858952596
   follow "robot:IRB 4600/40:solid:solid:solid:solid:solid:solid:pen"
   followType "Pan and Tilt Shot"
 }
@@ -33,9 +34,8 @@ PointLight {
   intensity 10
   location -5 -5 6
 }
-Floor {
+DEF FLOOR Floor {
   translation -4.3 0 0
-  name "floor(1)"
   size 16.4 20
   tileSize 1 1
   appearance ThreadMetalPlate {
@@ -88,7 +88,7 @@ Irb4600-40 {
   ]
   staticBase TRUE
 }
-Table {
+DEF ROBOT_TABLE Table {
   translation -4.84 1 0
   size 3 3 0.74
   feetPadding 0.05
@@ -166,4 +166,56 @@ DEF START Solid {
       }
     }
   ]
+}
+DEF SOLID1 Solid {
+  translation -4.03 -1.02 3.23
+  rotation 0.5773489358556708 0.5773509358554485 -0.5773509358554485 -2.094395307179586
+  children [
+    Shape {
+      appearance BrushedAluminium {
+      }
+      geometry Box {
+        size 1 5 1
+      }
+    }
+  ]
+  name "solid1"
+  model "box"
+  description "floating obstacle with collisions"
+  boundingObject Box {
+    size 1 5 1
+  }
+  locked TRUE
+  recognitionColors [
+    0 0 0
+  ]
+}
+DEF SOLID2 Solid {
+  translation -6.02 -0.0300041 3.18
+  rotation 0 0 1 1.5708
+  children [
+    Shape {
+      appearance BrushedAluminium {
+      }
+      geometry Box {
+        size 3 3 1
+      }
+    }
+  ]
+  name "solid2"
+  model "box"
+  description "floating obstacle with collisions"
+  boundingObject Box {
+    size 3 3 1
+  }
+  locked TRUE
+  recognitionColors [
+    0 0 0
+  ]
+}
+DEF CONVEYOR_BELT ConveyorBelt {
+  translation -4.91 -1.53 0.02
+  rotation 0 0 1 -1.5707953071795862
+  name "conveyor_belt"
+  speed 0.05
 }

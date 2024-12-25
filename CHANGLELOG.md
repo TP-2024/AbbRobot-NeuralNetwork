@@ -9,4 +9,4 @@
 - **Change**: Simplify ArmEvn initialization
 - **Change**: `main` script starts with param [ train, run ]
 - **Change**: `run-webots` script starts with param [ train, run ]
-- **Chore**: Simplify simulation world by removing unnecessary structures
+- **Chore**: Simplify simulation world by removing unnecessary structures and added obstacles for training scenarios
