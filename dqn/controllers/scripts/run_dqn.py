@@ -5,15 +5,6 @@ import torch
 from dqn.controllers.utils.arm_env import ArmEnv
 from dqn.controllers.utils.dqn_model import QNetwork
 
-JOINT_LIMITS = [
-    (-3.1415, 3.1415),  # Link A motor
-    (-1.5708, 2.61799),  # Link B motor
-    (-3.1415, 1.309),  # Link C motor
-    (-6.98132, 6.98132),  # Link D motor
-    (-2.18166, 2.0944),  # Link E motor
-    (-6.98132, 6.98132)  # Link F motor
-]
-
 
 def run_dqn():
     script_dir = Path(__file__).parent.parent

@@ -6,7 +6,8 @@ from ikpy.chain import Chain
 from controller import Supervisor
 
 
-class ArmEnv:
+class ArmEnv(Supervisor):
+    # Define joint limits for each motor
     JOINT_LIMITS = [
         (-3.1415, 3.1415),  # Link A motor
         (-1.5708, 2.61799),  # Link B motor
@@ -16,33 +17,45 @@ class ArmEnv:
         (-6.98132, 6.98132)  # Link F motor
     ]
 
-    def __init__(self, supervisor, arm_chain, motors, target_position, pen):
-        self.supervisor = supervisor
-        self.arm_chain = arm_chain
-        self.motors = motors
-        self.target_position = np.array(target_position, dtype=np.float32)
-        self.pen = pen
-        self.time_step = int(4 * supervisor.getBasicTimeStep())
+    def __init__(self):
+        super().__init__()
+
+        # Set the simulation timestep
+        self.time_step = int(4 * self.getBasicTimeStep())
+
+        # Initialize properties
+        self.arm_chain = self._initialize_chain()
+        self.motors = self._initialize_motors()
+        self.target_position = self.getFromDef('START').getPosition()
+        self.pen = self.getFromDef('PEN')
 
         self.start_dist = None
         self.acc_dist = 0.0
         self.prev_dist = None
 
-    @classmethod
-    def initialize_supervisor(cls) -> 'ArmEnv':
-        supervisor = Supervisor()
-        timeStep = int(4 * supervisor.getBasicTimeStep())
-
+    def _initialize_chain(self) -> 'Chain':
+        """
+            Initializes the robot's chain from its URDF file.
+        """
+        # Create a temporary URDF file
         with tempfile.NamedTemporaryFile(suffix='.urdf', delete=False) as file:
             filename = file.name
-            file.write(supervisor.getUrdf().encode('utf-8'))
-        arm_chain = Chain.from_urdf_file(filename, active_links_mask=[False, True, True, True, True, True, True, False])
+            file.write(self.getUrdf().encode('utf-8'))
 
+        # Parse the URDF file into a kinematic chain
+        active_links_mask = [False, True, True, True, True, True, True, False]
+        return Chain.from_urdf_file(filename, active_links_mask=active_links_mask)
+
+    def _initialize_motors(self) -> list:
+        """
+            Initializes the motors from the arm chain.
+            """
         motors = []
-        for link in arm_chain.links:
+        for link in self.arm_chain.links:
             if 'motor' in link.name:
-                motor = supervisor.getDevice(link.name)
-                # Different velocities for different joints
+                motor = self.getDevice(link.name)
+
+                # Set different velocities for different joints
                 if 'A' in link.name or 'B' in link.name:  # Base and shoulder joints
                     motor.setVelocity(5.0)  # Slower for larger movements
                 elif 'C' in link.name or 'D' in link.name:  # Elbow and first wrist
@@ -50,19 +63,24 @@ class ArmEnv:
                 else:  # E and F joints (wrist joints)
                     motor.setVelocity(9.0)  # Faster for smaller movements
 
+                # Enable position sensors
                 position_sensor = motor.getPositionSensor()
-                position_sensor.enable(timeStep)
+                position_sensor.enable(self.time_step)
+
                 motors.append(motor)
+        return motors
 
-        pen = supervisor.getFromDef('PEN')
-        target_position = supervisor.getFromDef('START').getPosition()
+    @classmethod
+    def initialize_supervisor(cls) -> 'ArmEnv':
+        """
+        Factory method to initialize and return an ArmEnv instance.
+        """
+        return cls()
 
-        return ArmEnv(supervisor, arm_chain, motors, target_position, pen)
-
-    def reset(self):
-        self.supervisor.simulationResetPhysics()
-        self.supervisor.simulationReset()
-        self.supervisor.step(self.time_step)
+    def reset(self) -> np.ndarray:
+        self.simulationResetPhysics()
+        self.simulationReset()
+        super().step(self.time_step)
 
         # Initialize joints to a good starting position
         starting_positions = [
@@ -82,7 +100,7 @@ class ArmEnv:
             )
             motor.setPosition(pos)
 
-        self.supervisor.step(self.time_step * 10)  # Wait for robot to settle
+        super().step(self.time_step * 10)  # Wait for robot to settle
 
         self.acc_dist = 0.0
         self.start_dist = np.linalg.norm(self.target_position - self._get_pen_position())
@@ -93,11 +111,11 @@ class ArmEnv:
         #     initial_position = (self.JOINT_LIMITS[joint_index][0] + self.JOINT_LIMITS[joint_index][1]) / 2
         #     motor.setPosition(initial_position)
         #
-        # self.supervisor.step(self.time_step)
+        # super().step(self.time_step)
 
         return self._get_state()
 
-    def step(self, action):
+    def step(self, action: int = None) -> tuple[np.ndarray, float, bool, dict]:
         # Store previous position
         prev_pos = self._get_pen_position()
 
@@ -122,7 +140,7 @@ class ArmEnv:
         lower_limit, upper_limit = self.JOINT_LIMITS[joint_index]
         new_position = np.clip(new_position, lower_limit, upper_limit)
         self.motors[joint_index].setPosition(new_position)
-        self.supervisor.step(self.time_step)
+        super().step(self.time_step)
 
         # Get new position and calculate distances
         current_pos = self._get_pen_position()
@@ -166,9 +184,9 @@ class ArmEnv:
             'efficiency': movement_efficiency
         }
 
-        return self._get_state(), reward, done, info
+        return self._get_state(), reward, done, info  # ndarray, int, float, dict
 
-    def _get_state(self):
+    def _get_state(self) -> np.ndarray:
         # return np.array([motor.getPositionSensor().getValue() for motor in self.motors], dtype=np.float32)
         # Get joint positions
         joint_positions = np.array([motor.getPositionSensor().getValue() for motor in self.motors])
@@ -189,7 +207,8 @@ class ArmEnv:
 
         return state.astype(np.float32)
 
-    def _get_end_effector_position(self):
+    def _get_end_effector_position(self) -> np.ndarray:
+
         joint_positions = [motor.getPositionSensor().getValue() for motor in self.motors]
         fk_result = self.arm_chain.forward_kinematics([0] + list(joint_positions) + [0])
         return fk_result[:3, 3]
@@ -202,7 +221,7 @@ class ArmEnv:
         pen_tip_pos = np.array([pen_pos[0], pen_pos[1], pen_pos[2] - 0.09], dtype=np.float32)
         return pen_tip_pos
 
-    def _is_collision(self):
+    def _is_collision(self) -> bool:
         # Check if any joint is at its limit
         for i, motor in enumerate(self.motors):
             pos = motor.getPositionSensor().getValue()
@@ -218,7 +237,9 @@ class ArmEnv:
         # Penalize excessive joint movement
         return -0.01 * np.abs(action)
 
-    def _calculate_smoothness_reward(self, current_pos, prev_pos, prev_prev_pos):
+    def _calculate_smoothness_reward(
+            self, current_pos: np.ndarray, prev_pos: np.ndarray, prev_prev_pos: np.ndarray
+    ) -> float:
         # Reward smooth trajectories
         acceleration = (current_pos - 2 * prev_pos + prev_prev_pos)
         return -0.1 * np.linalg.norm(acceleration)

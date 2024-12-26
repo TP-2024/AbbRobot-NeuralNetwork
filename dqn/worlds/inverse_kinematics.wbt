@@ -8,6 +8,7 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/tables/protos/Table.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/OldSteel.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/GalvanizedMetal.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/drinks/protos/Can.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/conveyors/protos/ConveyorBelt.proto"
 
 WorldInfo {
@@ -15,8 +16,8 @@ WorldInfo {
 }
 Viewpoint {
   fieldOfView 0.85
-  orientation 0.0711033430117866 0.0415622863669532 -0.9966026745722186 4.936646331987227
-  position -5.625047632414807 -9.915529572618627 2.2824815858952596
+  orientation 0.07215842940737126 -0.03861577214444795 -0.9966453648149624 5.004374696543942
+  position -6.339312379105505 -5.956350923780517 2.1961850827122498
   follow "robot:IRB 4600/40:solid:solid:solid:solid:solid:solid:pen"
   followType "Pan and Tilt Shot"
 }
@@ -213,9 +214,12 @@ DEF SOLID2 Solid {
     0 0 0
   ]
 }
+Can {
+  translation -5 -0.69 0.7
+}
 DEF CONVEYOR_BELT ConveyorBelt {
-  translation -4.91 -1.53 0.02
+  translation -5.02 -1.29 0
   rotation 0 0 1 -1.5707953071795862
-  name "conveyor_belt"
-  speed 0.05
+  size 1.6 0.5 0.6
+  speed 1
 }
