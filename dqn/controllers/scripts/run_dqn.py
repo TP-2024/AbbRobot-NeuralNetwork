@@ -5,43 +5,62 @@ import torch
 from dqn.controllers.utils.arm_env import ArmEnv
 from dqn.controllers.utils.dqn_model import QNetwork
 
-JOINT_LIMITS = [
-    (-3.1415, 3.1415),  # Link A motor
-    (-1.5708, 2.61799),  # Link B motor
-    (-3.1415, 1.309),  # Link C motor
-    (-6.98132, 6.98132),  # Link D motor
-    (-2.18166, 2.0944),  # Link E motor
-    (-6.98132, 6.98132)  # Link F motor
-]
 
-
-def run_dqn(supervisor, arm_chain, motors, target_position):
+def run_dqn():
     script_dir = Path(__file__).parent.parent
-
     models_dir = script_dir / 'models'
+    # model_path = models_dir / 'episode_dqn_model.pth'
+    # model_path = models_dir / 'done_dqn_model_25-175432.pth'
 
-    model_path = models_dir / 'best_dqn_model.pth'
+    # Get all .pth files in the models directory
+    model_files = sorted(models_dir.glob('done_dqn_model_*.pth'))
 
-    env = ArmEnv(supervisor, arm_chain, motors, target_position, JOINT_LIMITS)
+    env = ArmEnv.initialize_supervisor()
 
-    state_dim = len(motors)
-    action_dim = len(motors) * 2
-    q_network = QNetwork(state_dim, action_dim)
-    checkpoint = torch.load(str(model_path))
-    q_network.load_state_dict(checkpoint['model_state_dict'])
+    state_dim = len(env.motors) + 3
+    action_dim = len(env.motors) * 2
 
-    q_network.eval()
+    all_models_performance = {}
+    for model_path in model_files:
+        print(f"\nEvaluating model: {model_path.name}")
 
-    for episode in range(10):
+        q_network = QNetwork(state_dim, action_dim)
+        checkpoint = torch.load(str(model_path), weights_only=False)
+        config = checkpoint.get('config', {})
+        q_network.load_state_dict(checkpoint['model_state_dict'])
+        q_network.eval()
+
         state = env.reset()
         total_reward = 0
 
-        for t in range(10000):
+        for t in range(config['max_steps']):
             state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
             action = q_network(state_tensor).argmax().item()
             state, reward, done, _ = env.step(action)
             total_reward += reward
+
             if done:
                 break
 
-        print(f"Episode {episode}, Total Reward: {total_reward}")
+        # Print summary statistics for this model
+        print(f"\nModel: {model_path.name}")
+        print(f"Reward: {total_reward:.2f}")
+        print(f"Done: {str(done)}")
+        print("-" * 50)
+
+        all_models_performance[model_path.name] = {
+            'reward': total_reward,
+            'training_reward': checkpoint.get('reward', 'N/A'),
+            'done': done
+        }
+
+    # Print comparative analysis
+    print("\nComparative Analysis of All Models:")
+    print("-" * 80)
+    print(f"{'Model Name':<35} {'Reward':<15} {'Training reward':<20} {'Touched':<15}")
+    print("-" * 80)
+
+    for model_name, stats in sorted(all_models_performance.items(), key=lambda x: x[1]['reward'], reverse=True):
+        print(
+            f"{model_name:<35} {stats['reward']:<15.2f} {stats['training_reward']:<20.2f} {stats['done']:}"
+        )

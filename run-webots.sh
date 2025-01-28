@@ -6,7 +6,12 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     source venv/bin/activate
     export QT_PLUGIN_PATH=/Applications/Webots.app/Contents/MacOS/plugins
     export WEBOTS_HOME=/Applications/Webots.app/Contents
-    /Applications/Webots.app/Contents/MacOS/webots
+    if [[ "$1" == "train" ]]; then
+      /Applications/Webots.app/Contents/MacOS/webots --batch --minimize --no-rendering --mode=fast --stdout --stderr --extern-urls ./dqn/worlds/inverse_kinematics.wbt
+    else
+      /Applications/Webots.app/Contents/MacOS/webots ./dqn/worlds/inverse_kinematics.wbt
+    fi
+
 elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OS" == "Windows_NT" ]]; then
     # Windows configuration
     source venv/Scripts/activate
