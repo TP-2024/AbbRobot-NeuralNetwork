@@ -33,6 +33,29 @@ class ArmEnv(Supervisor):
         self.acc_dist = 0.0
         self.prev_dist = None
 
+        # For the new reward function: store previous per-axis distances.
+        # This will be initialized at the first reset.
+        self.prev_axis_dists = None
+        # Scaling factor lambda for the exponential terms (adjust as needed)
+        self.lambda_scale = 1.0
+
+        # For terminal reward/penalty: set maximum steps per episode.
+        self.max_steps = 200  # Adjust to match your training configuration.
+        self.current_step = 0
+
+        # Initialize touch sensors
+        self.touch_sensors = []
+        for sensor_name in [
+            "A touch sensor", "B touch sensor", "C touch sensor",
+            "D touch sensor", "E touch sensor", "F touch sensor"
+        ]:
+            sensor = self.getDevice(sensor_name)
+            sensor.enable(self.time_step)
+            self.touch_sensors.append(sensor)
+
+        # Run one simulation step to reset sensor states
+        super().step(self.time_step)
+
     def _initialize_chain(self) -> 'Chain':
         """
             Initializes the robot's chain from its URDF file.
@@ -49,7 +72,7 @@ class ArmEnv(Supervisor):
     def _initialize_motors(self) -> list:
         """
             Initializes the motors from the arm chain.
-            """
+        """
         motors = []
         for link in self.arm_chain.links:
             if 'motor' in link.name:
@@ -66,7 +89,6 @@ class ArmEnv(Supervisor):
                 # Enable position sensors
                 position_sensor = motor.getPositionSensor()
                 position_sensor.enable(self.time_step)
-
                 motors.append(motor)
         return motors
 
@@ -84,55 +106,49 @@ class ArmEnv(Supervisor):
 
         # Initialize joints to a good starting position
         starting_positions = [
-            0.0,  # Base joint
+            0.0,   # Base joint
             -0.5,  # Shoulder
-            0.5,  # Elbow
-            0.0,  # Wrist 1
-            0.0,  # Wrist 2
-            0.0  # Wrist 3
+            0.5,   # Elbow
+            0.0,   # Wrist 1
+            0.0,   # Wrist 2
+            0.0    # Wrist 3
         ]
 
         for i, motor in enumerate(self.motors):
-            pos = np.clip(
-                starting_positions[i],
-                self.JOINT_LIMITS[i][0],
-                self.JOINT_LIMITS[i][1]
-            )
+            pos = np.clip(starting_positions[i], self.JOINT_LIMITS[i][0], self.JOINT_LIMITS[i][1])
             motor.setPosition(pos)
 
         super().step(self.time_step * 10)  # Wait for robot to settle
 
         self.acc_dist = 0.0
-        self.start_dist = np.linalg.norm(self.target_position - self._get_pen_position())
+        current_pen = self._get_pen_position()
+        self.start_dist = np.linalg.norm(self.target_position - current_pen)
         self.prev_dist = self.start_dist
+        # Initialize per-axis distances (absolute difference along each axis)
+        self.prev_axis_dists = np.abs(self.target_position - current_pen)
 
-        # # Reset motor positions within joint limits
-        # for joint_index, motor in enumerate(self.motors):
-        #     initial_position = (self.JOINT_LIMITS[joint_index][0] + self.JOINT_LIMITS[joint_index][1]) / 2
-        #     motor.setPosition(initial_position)
-        #
-        # super().step(self.time_step)
+        # Reset step counter for a new episode.
+        self.current_step = 0
 
         return self._get_state()
 
     def step(self, action: int = None) -> tuple[np.ndarray, float, bool, dict]:
-        # Store previous position
+        # Store previous pen position
         prev_pos = self._get_pen_position()
 
+        # Apply action: determine joint and direction from action index
         joint_index = action // 2
         direction = 1 if action % 2 == 1 else -1
         current_position = self.motors[joint_index].getPositionSensor().getValue()
 
-        # Calculate distance to target
+        # Adjust step size based on current distance to target
         current_pos = self._get_pen_position()
         distance_to_target = np.linalg.norm(self.target_position - current_pos)
-
-        # Adjust step size based on distance
         base_step = 0.05
         if distance_to_target > 1.0:
-            step_size = base_step * 1.5  # Larger steps when far
+            step_size = base_step * 1.5
         elif distance_to_target < 0.2:
-            step_size = base_step * 0.5  # Smaller steps when close
+            step_size = base_step * 0.5
         else:
             step_size = base_step
 
@@ -142,52 +158,65 @@ class ArmEnv(Supervisor):
         self.motors[joint_index].setPosition(new_position)
         super().step(self.time_step)
 
-        # Get new position and calculate distances
+        # Increment step counter
+        self.current_step += 1
+
+        # Get updated position and distances
         current_pos = self._get_pen_position()
         current_dist = np.linalg.norm(self.target_position - current_pos)
-
-        # Calculate movement distance
         step_dist = np.linalg.norm(current_pos - prev_pos)
         self.acc_dist += step_dist
 
-        # Calculate reward components
-        distance_improvement = (self.prev_dist - current_dist)  # Positive when getting closer
-        movement_efficiency = self.start_dist / (self.acc_dist + self.start_dist)  # 1 to 0 (1 is better)
-        target_proximity = 1.0 - (current_dist / self.start_dist)  # 0 to 1 (1 is better)
+        # ----- New Reward Function Implementation -----
+        # Compute per-axis distances between pen tip and target
+        current_axis_dists = np.abs(self.target_position - current_pos)
+        reward_components = []
+        for i in range(3):
+            delta = current_axis_dists[i] - self.prev_axis_dists[i]
+            if delta < 0:
+                r = 1.1 * np.exp(-self.lambda_scale * (current_axis_dists[i] ** 2))
+            else:
+                r = -np.exp(-self.lambda_scale * (current_axis_dists[i] ** 2))
+            reward_components.append(r)
+        r1 = np.mean(reward_components)
 
-        # Add proximity bonus for very close positions
-        proximity_bonus = 0
-        if current_dist < 0.15:  # Within 15cm
-            proximity_bonus = (0.15 - current_dist) * 10  # More bonus as it gets closer
+        # Determine if the goal is reached
+        if current_dist < 0.1:
+            bonus = 20.0  # Strong bonus for reaching the goal
+            success = True
+        else:
+            bonus = 0.0
+            success = False
 
-        # Combine reward components
-        reward = (
-                0.4 * distance_improvement +  # Reward for moving closer to target
-                0.3 * movement_efficiency +  # Reward for efficient movement
-                0.3 * target_proximity +  # Reward for being close to target
-                proximity_bonus  # Bonus for very close positions
-        )
+        reward = r1 + bonus
 
-        # Penalties
-        if self._is_collision():  # Implement collision detection
+        # Apply collision penalty if needed
+        if self._is_collision():
             reward -= 1.0
 
-        # Update previous distance
-        self.prev_dist = current_dist
+        # If max steps reached without success, apply a terminal penalty and mark as failure
+        if self.current_step >= self.max_steps and not success:
+            reward -= 5.0  # Terminal penalty for not reaching the goal
+            done = False
+        else:
+            # Terminate episode if goal reached, else continue
+            done = success
 
-        # Check if done
-        done = current_dist < 0.1
+        # Update previous distances for the next step
+        self.prev_axis_dists = current_axis_dists
+        self.prev_dist = current_dist
+        # ------------------------------------------------
 
         info = {
             'distance': current_dist,
             'accumulated_distance': self.acc_dist,
-            'efficiency': movement_efficiency
+            'step': self.current_step,
+            'goal_reached': success
         }
 
-        return self._get_state(), reward, done, info  # ndarray, int, float, dict
+        return self._get_state(), reward, done, info
 
     def _get_state(self) -> np.ndarray:
-        # return np.array([motor.getPositionSensor().getValue() for motor in self.motors], dtype=np.float32)
         # Get joint positions
         joint_positions = np.array([motor.getPositionSensor().getValue() for motor in self.motors])
 
@@ -202,20 +231,17 @@ class ArmEnv(Supervisor):
         pen_pos = self._get_pen_position()
         target_vector = self.target_position - pen_pos
         normalized_target = target_vector / np.linalg.norm(target_vector)
-
         state = np.concatenate([normalized_positions, normalized_target])
 
         return state.astype(np.float32)
 
     def _get_end_effector_position(self) -> np.ndarray:
-
         joint_positions = [motor.getPositionSensor().getValue() for motor in self.motors]
         fk_result = self.arm_chain.forward_kinematics([0] + list(joint_positions) + [0])
         return fk_result[:3, 3]
 
     def _get_pen_position(self):
-        """Get the actual position of the pen tip"""
-        # Get pen position and add offset for the tip
+        """Get the actual position of the pen tip."""
         pen_pos = self.pen.getPosition()
         # Adjust Z coordinate for pen tip (0.09 = total pen length)
         pen_tip_pos = np.array([pen_pos[0], pen_pos[1], pen_pos[2] - 0.09], dtype=np.float32)
@@ -229,7 +255,11 @@ class ArmEnv(Supervisor):
             if abs(pos - lower) < 0.01 or abs(pos - upper) < 0.01:
                 return True
 
-        # You could also add environment collision checks here
+        for sensor in self.touch_sensors:
+            if sensor.getValue() == 1.0:
+                print(f"Collision detected for sensor {sensor.getName()}")
+                return True
+
         return False
 
     @staticmethod

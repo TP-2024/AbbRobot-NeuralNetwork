@@ -1,9 +1,9 @@
-#VRML_SIM R2023b utf8
+#VRML_SIM R2025a utf8
 
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/Floor.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/ThreadMetalPlate.proto"
-EXTERNPROTO "protos/Irb4600-40.proto"
+EXTERNPROTO "/home/heddence/Documents/tp/abb_robot_nn/dqn/worlds/protos/Irb4600-40.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/BrushedAluminium.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/tables/protos/Table.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/OldSteel.proto"
@@ -16,8 +16,8 @@ WorldInfo {
 }
 Viewpoint {
   fieldOfView 0.85
-  orientation 0.07215842940737126 -0.03861577214444795 -0.9966453648149624 5.004374696543942
-  position -6.339312379105505 -5.956350923780517 2.1961850827122498
+  orientation 0.05917892396328488 -0.020438514874707367 -0.9980381365800928 4.917725140968109
+  position -6.1105042600189385 -9.941845078207278 2.3257539288533167
   follow "robot:IRB 4600/40:solid:solid:solid:solid:solid:solid:pen"
   followType "Pan and Tilt Shot"
 }
@@ -169,7 +169,7 @@ DEF START Solid {
   ]
 }
 DEF SOLID1 Solid {
-  translation -4.03 -1.02 3.23
+  translation -4 -1.02 3.23
   rotation 0.5773489358556708 0.5773509358554485 -0.5773509358554485 -2.094395307179586
   children [
     Shape {
@@ -192,7 +192,7 @@ DEF SOLID1 Solid {
   ]
 }
 DEF SOLID2 Solid {
-  translation -6.02 -0.0300041 3.18
+  translation -6 -0.0300041 3.3
   rotation 0 0 1 1.5708
   children [
     Shape {

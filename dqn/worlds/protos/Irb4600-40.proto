@@ -67,12 +67,12 @@ PROTO Irb4600-40 [
             TouchSensor {
               name "A touch sensor"
               boundingObject Pose {
-				translation 0.046699 0.049037 0.270246
-				children [
-				  Box {
-					size 0.621392 0.540918 0.552493
-				  }
-				]
+                translation 0.046699 0.049037 0.270246
+                children [
+                  Box {
+                    size 0.621392 0.540918 0.552493
+                  }
+                ]
               }
             }
             DEF LINK2_TRANSFORM HingeJoint {
