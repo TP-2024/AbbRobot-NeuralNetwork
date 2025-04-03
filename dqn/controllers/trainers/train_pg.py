@@ -1,4 +1,3 @@
-# trainers/train_pg.py
 import os
 from datetime import datetime
 from pathlib import Path
@@ -7,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
+import wandb
 
 from dqn.controllers.utils.arm_env import ArmEnv
 from dqn.controllers.trainers.base_trainer import BaseTrainer
@@ -29,6 +29,10 @@ class PolicyNetwork(nn.Module):
 class PGTrainer(BaseTrainer):
     def __init__(self, config):
         super().__init__(config)
+        if wandb.run is None:
+            wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
+            wandb.init(project="robot-training", entity="ilya-koyushev1-org", config=config.dict())
+
         script_dir = Path(__file__).parent.parent
         self.models_dir = script_dir / 'models'
         os.makedirs(self.models_dir, exist_ok=True)
@@ -83,13 +87,6 @@ class PGTrainer(BaseTrainer):
 
                 if done:
                     print(f'\nEpisode {episode}/{self.config["episodes"]} Done! Reward: {episode_reward}\n')
-                    torch.save({
-                        'episode': episode,
-                        'model_state_dict': self.policy_net.state_dict(),
-                        'reward': episode_reward,
-                        'config': self.config
-                    }, str(self.done_model_path).format(episode=episode,
-                                                        timestamp=datetime.now().strftime("%d-%H%M%S")))
                     break
 
             # Compute discounted returns (REINFORCE)
@@ -107,18 +104,28 @@ class PGTrainer(BaseTrainer):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-
-            # Save best model if improved
-            if episode_reward > self.best_reward + self.config.get('min_improvement', 0.01):
+            
+            if episode_reward > self.best_reward:
                 self.best_reward = episode_reward
+
+            if episode % 100 == 0 and episode > 0:
+                # Save a checkpoint every 100 episodes
                 torch.save({
                     'episode': episode,
                     'model_state_dict': self.policy_net.state_dict(),
                     'reward': episode_reward,
-                    'config': self.config
-                }, str(self.episode_model_path))
+                    'config': self.config.dict()
+                }, self.models_dir / f'checkpoint_pg_episode_{episode}.pth')
 
-            # Print status message matching DQNTrainer's format
+            if episode == self.config.episodes - 1:
+                torch.save({
+                    'episode': episode,
+                    'model_state_dict': self.policy_net.state_dict(),
+                    'reward': episode_reward,
+                    'config': self.config.dict()
+                }, self.models_dir / 'final_pg_model.pth')
+
+            # Print status message
             print(
                 f"Episode {episode}/{self.config['episodes']} "
                 f"({(episode + 1) / self.config['episodes']:.1%} complete) | "
@@ -126,6 +133,8 @@ class PGTrainer(BaseTrainer):
                 f"Loss: {loss.item():.4f} | "
                 f"Best: {self.best_reward:.2f}"
             )
+            wandb.log({"episode": episode, "reward": episode_reward, "loss": loss.item(), "best_reward": self.best_reward})
+
         print(f"Training completed at {datetime.now().isoformat()}")
         print(f"Best reward achieved: {self.best_reward}")
 

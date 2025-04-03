@@ -181,7 +181,7 @@ class ArmEnv(Supervisor):
         r1 = np.mean(reward_components)
 
         # Determine if the goal is reached
-        if current_dist < 0.1:
+        if current_dist < 0.01:
             bonus = 20.0  # Strong bonus for reaching the goal
             success = True
         else:

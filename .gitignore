@@ -141,3 +141,5 @@ cython_debug/
 .pypirc
 
 path.txt
+dqn/controllers/run.sh
+dqn/controllers/wandb/
