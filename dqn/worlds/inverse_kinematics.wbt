@@ -3,7 +3,7 @@
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/Floor.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/ThreadMetalPlate.proto"
-EXTERNPROTO "/home/heddence/Documents/tp/abb_robot_nn/dqn/worlds/protos/Irb4600-40.proto"
+EXTERNPROTO "/home/heddence/Documents/tp/robot_network/dqn/worlds/protos/Irb4600-40.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/BrushedAluminium.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/tables/protos/Table.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/OldSteel.proto"
@@ -16,8 +16,8 @@ WorldInfo {
 }
 Viewpoint {
   fieldOfView 0.85
-  orientation 0.05917892396328488 -0.020438514874707367 -0.9980381365800928 4.917725140968109
-  position -6.1105042600189385 -9.941845078207278 2.3257539288533167
+  orientation 0.1522115868222853 -0.14267314196381076 -0.977995913794744 4.954544961465034
+  position -6.449089723737807 -6.601691201406192 3.7529909831550157
   follow "robot:IRB 4600/40:solid:solid:solid:solid:solid:solid:pen"
   followType "Pan and Tilt Shot"
 }

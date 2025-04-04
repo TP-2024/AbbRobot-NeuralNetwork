@@ -3,32 +3,19 @@ from datetime import datetime
 from pathlib import Path
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
 import wandb
 
 from dqn.controllers.utils.arm_env import ArmEnv
 from dqn.controllers.trainers.base_trainer import BaseTrainer
-
-# Define a simple policy network (REINFORCE)
-class PolicyNetwork(nn.Module):
-    def __init__(self, state_dim, action_dim):
-        super(PolicyNetwork, self).__init__()
-        self.layers = nn.Sequential(
-            nn.Linear(state_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, action_dim),
-            nn.Softmax(dim=-1)
-        )
-
-    def forward(self, x):
-        return self.layers(x)
+from dqn.controllers.networks.pg_model import PolicyNetwork
 
 
 class PGTrainer(BaseTrainer):
     def __init__(self, config):
         super().__init__(config)
+        self.config = config
         if wandb.run is None:
             wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
             wandb.init(project="robot-training", entity="ilya-koyushev1-org", config=config.dict())
@@ -44,8 +31,7 @@ class PGTrainer(BaseTrainer):
             if not torch.backends.mps.is_built():
                 print("MPS not available because the current PyTorch install was not built with MPS enabled.")
             else:
-                print(
-                    "MPS not available because the current MacOS version is not 12.3+ and/or you do not have an MPS-enabled device.")
+                print("MPS not available because the current MacOS version is not 12.3+ and/or you do not have an MPS-enabled device.")
             self.device = torch.device("cpu")
         else:
             self.device = torch.device("mps")
@@ -56,21 +42,21 @@ class PGTrainer(BaseTrainer):
         self.state_dim = len(self.env.motors) + 3
         self.action_dim = len(self.env.motors) * 2
 
-        # Initialize the policy network and optimizer
+        # Initialize the policy network and optimizer using dot notation for config access
         self.policy_net = PolicyNetwork(self.state_dim, self.action_dim).to(self.device)
-        self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=config['learning_rate'])
+        self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=config.learning_rate)
         self.best_reward = float('-inf')
 
     def train(self):
         print(f"Starting Policy Gradient training at {datetime.now().isoformat()}")
-        for episode in range(self.config['episodes']):
+        for episode in range(self.config.episodes):
             state = self.env.reset()
             state = torch.tensor(state, dtype=torch.float32).to(self.device)
             log_probs = []
             rewards = []
             episode_reward = 0
 
-            for step in range(self.config['max_steps']):
+            for step in range(self.config.max_steps):
                 # Get action probabilities and sample an action
                 probs = self.policy_net(state.unsqueeze(0))
                 m = Categorical(probs)
@@ -86,14 +72,14 @@ class PGTrainer(BaseTrainer):
                 state = next_state
 
                 if done:
-                    print(f'\nEpisode {episode}/{self.config["episodes"]} Done! Reward: {episode_reward}\n')
+                    print(f'\nEpisode {episode}/{self.config.episodes} Done! Reward: {episode_reward}\n')
                     break
 
             # Compute discounted returns (REINFORCE)
             returns = []
             G = 0
             for r in reversed(rewards):
-                G = r + self.config['gamma'] * G
+                G = r + self.config.gamma * G
                 returns.insert(0, G)
             returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
 
@@ -104,12 +90,11 @@ class PGTrainer(BaseTrainer):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            
+
             if episode_reward > self.best_reward:
                 self.best_reward = episode_reward
 
             if episode % 100 == 0 and episode > 0:
-                # Save a checkpoint every 100 episodes
                 torch.save({
                     'episode': episode,
                     'model_state_dict': self.policy_net.state_dict(),
@@ -125,10 +110,9 @@ class PGTrainer(BaseTrainer):
                     'config': self.config.dict()
                 }, self.models_dir / 'final_pg_model.pth')
 
-            # Print status message
             print(
-                f"Episode {episode}/{self.config['episodes']} "
-                f"({(episode + 1) / self.config['episodes']:.1%} complete) | "
+                f"Episode {episode}/{self.config.episodes} "
+                f"({(episode + 1) / self.config.episodes:.1%} complete) | "
                 f"Reward: {episode_reward:.2f} | "
                 f"Loss: {loss.item():.4f} | "
                 f"Best: {self.best_reward:.2f}"

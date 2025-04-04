@@ -14,6 +14,7 @@ from dqn.controllers.networks.dqn_model import QNetwork
 from dqn.controllers.utils.replay_buffer import PrioritizedReplay
 from dqn.controllers.trainers.base_trainer import BaseTrainer
 
+
 class DQNTrainer(BaseTrainer):
     def __init__(self, config):
         super().__init__(config)
@@ -135,7 +136,7 @@ class DQNTrainer(BaseTrainer):
                     'config': self.config.dict()
                 }, self.models_dir / f'checkpoint_dqn_episode_{episode}.pth')
 
-            # (At the end of training, save final model)
+            # At the end of training, save final model
             if episode == self.config.episodes - 1:
                 torch.save({
                     'episode': episode,
@@ -158,4 +159,5 @@ class DQNTrainer(BaseTrainer):
         print(f"Best reward achieved: {self.best_reward}")
 
     def evaluate(self):
+        # TODO: Implement evaluation logic here
         pass

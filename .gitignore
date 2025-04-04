@@ -143,3 +143,4 @@ cython_debug/
 path.txt
 dqn/controllers/run.sh
 dqn/controllers/wandb/
+dqn/controllers/models
