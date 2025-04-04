@@ -1,11 +1,11 @@
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import torch
 import torch.optim as optim
 from torch.distributions import Categorical
-import wandb
 
 from dqn.controllers.utils.arm_env import ArmEnv
 from dqn.controllers.trainers.base_trainer import BaseTrainer
@@ -13,12 +13,12 @@ from dqn.controllers.networks.pg_model import PolicyNetwork
 
 
 class PGTrainer(BaseTrainer):
-    def __init__(self, config):
+    """
+    Trainer for the Policy Gradient (REINFORCE) method.
+    """
+    def __init__(self, config: Any) -> None:
         super().__init__(config)
-        self.config = config
-        if wandb.run is None:
-            wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
-            wandb.init(project="robot-training", entity="ilya-koyushev1-org", config=config.dict())
+        BaseTrainer.init_wandb(config.wandb_project, config.wandb_entity, config.dict())
 
         script_dir = Path(__file__).parent.parent
         self.models_dir = script_dir / 'models'
@@ -26,29 +26,23 @@ class PGTrainer(BaseTrainer):
         self.episode_model_path = self.models_dir / 'episode_pg_model.pth'
         self.done_model_path = self.models_dir / 'done_pg_model_{episode}_{timestamp}.pth'
 
-        # Set up device (same logic as in DQNTrainer)
-        if not torch.backends.mps.is_available():
-            if not torch.backends.mps.is_built():
-                print("MPS not available because the current PyTorch install was not built with MPS enabled.")
-            else:
-                print("MPS not available because the current MacOS version is not 12.3+ and/or you do not have an MPS-enabled device.")
-            self.device = torch.device("cpu")
-        else:
-            self.device = torch.device("mps")
-        print(f"Using device: {self.device}")
+        self.device = BaseTrainer.get_device()
+        self.logger.info(f"Using device: {self.device}")
 
-        # Initialize environment and dimensions
-        self.env = ArmEnv.initialize_supervisor()
+        self.env = ArmEnv.initialize_supervisor(self.config.max_steps)
         self.state_dim = len(self.env.motors) + 3
         self.action_dim = len(self.env.motors) * 2
 
-        # Initialize the policy network and optimizer using dot notation for config access
         self.policy_net = PolicyNetwork(self.state_dim, self.action_dim).to(self.device)
         self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=config.learning_rate)
         self.best_reward = float('-inf')
 
-    def train(self):
-        print(f"Starting Policy Gradient training at {datetime.now().isoformat()}")
+    def train(self) -> None:
+        """
+        Trains the Policy Gradient model using the REINFORCE algorithm.
+        """
+        self.logger.info(f"Starting Policy Gradient training at {datetime.now().isoformat()}")
+
         for episode in range(self.config.episodes):
             state = self.env.reset()
             state = torch.tensor(state, dtype=torch.float32).to(self.device)
@@ -57,7 +51,6 @@ class PGTrainer(BaseTrainer):
             episode_reward = 0
 
             for step in range(self.config.max_steps):
-                # Get action probabilities and sample an action
                 probs = self.policy_net(state.unsqueeze(0))
                 m = Categorical(probs)
                 action = m.sample()
@@ -68,20 +61,22 @@ class PGTrainer(BaseTrainer):
                 next_state = torch.tensor(next_state, dtype=torch.float32).to(self.device)
                 rewards.append(reward)
                 episode_reward += reward
-
                 state = next_state
 
                 if done:
-                    print(f'\nEpisode {episode}/{self.config.episodes} Done! Reward: {episode_reward}\n')
+                    self.logger.info(f"Episode {episode}/{self.config.episodes} done with reward {episode_reward}")
                     break
 
-            # Compute discounted returns (REINFORCE)
+            # Compute discounted returns.
             returns = []
             G = 0
             for r in reversed(rewards):
                 G = r + self.config.gamma * G
                 returns.insert(0, G)
             returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
+
+            if returns.std() != 0:
+                returns = (returns - returns.mean()) / (returns.std() + 1e-8)
 
             loss = 0
             for log_prob, G in zip(log_probs, returns):
@@ -95,33 +90,26 @@ class PGTrainer(BaseTrainer):
                 self.best_reward = episode_reward
 
             if episode % 100 == 0 and episode > 0:
-                torch.save({
-                    'episode': episode,
-                    'model_state_dict': self.policy_net.state_dict(),
-                    'reward': episode_reward,
-                    'config': self.config.dict()
-                }, self.models_dir / f'checkpoint_pg_episode_{episode}.pth')
+                checkpoint_file = self.models_dir / f'checkpoint_pg_episode_{episode}.pth'
+                self.save_checkpoint(self.policy_net, episode, episode_reward, checkpoint_file)
 
             if episode == self.config.episodes - 1:
-                torch.save({
-                    'episode': episode,
-                    'model_state_dict': self.policy_net.state_dict(),
-                    'reward': episode_reward,
-                    'config': self.config.dict()
-                }, self.models_dir / 'final_pg_model.pth')
+                final_file = self.models_dir / 'final_pg_model.pth'
+                self.save_checkpoint(self.policy_net, episode, episode_reward, final_file)
 
-            print(
+            self.logger.info(
                 f"Episode {episode}/{self.config.episodes} "
                 f"({(episode + 1) / self.config.episodes:.1%} complete) | "
                 f"Reward: {episode_reward:.2f} | "
                 f"Loss: {loss.item():.4f} | "
                 f"Best: {self.best_reward:.2f}"
             )
-            wandb.log({"episode": episode, "reward": episode_reward, "loss": loss.item(), "best_reward": self.best_reward})
 
-        print(f"Training completed at {datetime.now().isoformat()}")
-        print(f"Best reward achieved: {self.best_reward}")
+            self.log_metrics(episode, episode_reward, loss.item(), self.best_reward)
 
-    def evaluate(self):
-        # TODO: Implement evaluation logic here
+        self.logger.info(f"Training completed at {datetime.now().isoformat()}")
+        self.logger.info(f"Best reward achieved: {self.best_reward}")
+
+    def evaluate(self) -> None:
+        self.logger.info("Evaluation not implemented yet.")
         pass

@@ -2,12 +2,12 @@ import os
 import random
 from datetime import datetime
 from pathlib import Path
+from typing import Tuple, Any
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import wandb
 
 from dqn.controllers.utils.arm_env import ArmEnv
 from dqn.controllers.networks.dqn_model import QNetwork
@@ -16,11 +16,12 @@ from dqn.controllers.trainers.base_trainer import BaseTrainer
 
 
 class DQNTrainer(BaseTrainer):
-    def __init__(self, config):
+    """
+    Trainer for the DQN method.
+    """
+    def __init__(self, config: Any) -> None:
         super().__init__(config)
-        if wandb.run is None:
-            wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
-            wandb.init(project="robot-training", entity="ilya-koyushev1-org", config=config.dict())
+        BaseTrainer.init_wandb(config.wandb_project, config.wandb_entity, config.dict())
 
         script_dir = Path(__file__).parent.parent
         self.models_dir = script_dir / 'models'
@@ -28,23 +29,13 @@ class DQNTrainer(BaseTrainer):
         self.episode_model_path = self.models_dir / 'episode_dqn_model.pth'
         self.done_model_path = self.models_dir / 'done_dqn_model_{episode}_{timestamp}.pth'
 
-        # Set up device
-        if not torch.backends.mps.is_available():
-            if not torch.backends.mps.is_built():
-                print("MPS not available because the current PyTorch install was not built with MPS enabled.")
-            else:
-                print("MPS not available because the current MacOS version is not 12.3+ and/or you do not have an MPS-enabled device.")
-            self.device = torch.device("cpu")
-        else:
-            self.device = torch.device("mps")
-        print(f"Using device: {self.device}")
+        self.device = BaseTrainer.get_device()
+        self.logger.info(f"Using device: {self.device}")
 
-        # Initialize environment and models
-        self.env = ArmEnv.initialize_supervisor()
+        self.env = ArmEnv.initialize_supervisor(self.config.max_steps)
         self.state_dim = len(self.env.motors) + 3
         self.action_dim = len(self.env.motors) * 2
 
-        # Initialize networks
         self.q_network = QNetwork(self.state_dim, self.action_dim).to(self.device)
         self.target_network = QNetwork(self.state_dim, self.action_dim).to(self.device)
         self.target_network.load_state_dict(self.q_network.state_dict())
@@ -55,8 +46,11 @@ class DQNTrainer(BaseTrainer):
         self.replay_buffer = PrioritizedReplay(config.memory_size)
         self.best_reward = float('-inf')
 
-    def train(self):
-        print(f"Starting training at {datetime.now().isoformat()}")
+    def train(self) -> None:
+        """
+        Trains the DQN model.
+        """
+        self.logger.info(f"Starting training at {datetime.now().isoformat()}")
         for episode in range(self.config.episodes):
             state = self.env.reset()
             state = torch.tensor(state, dtype=torch.float32).to(self.device)
@@ -65,7 +59,6 @@ class DQNTrainer(BaseTrainer):
             num_steps = 0
 
             for step in range(self.config.max_steps):
-                # Epsilon-greedy action selection
                 epsilon = max(self.config.epsilon_end,
                               self.config.epsilon_start * (self.config.epsilon_decay ** episode))
                 if random.random() < epsilon:
@@ -115,7 +108,7 @@ class DQNTrainer(BaseTrainer):
                 state = next_state
 
                 if done:
-                    print(f'\nEpisode {episode}/{self.config.episodes} Done! Reward: {episode_reward}\n')
+                    self.logger.info(f"Episode {episode}/{self.config.episodes} done with reward {episode_reward}")
                     break
 
             avg_loss = episode_loss / num_steps if num_steps > 0 else 0
@@ -123,41 +116,32 @@ class DQNTrainer(BaseTrainer):
 
             if episode % self.config.update_target_every == 0:
                 self.target_network.load_state_dict(self.q_network.state_dict())
-                
+
             if episode_reward > self.best_reward:
                 self.best_reward = episode_reward
 
             if episode % 100 == 0 and episode > 0:
-                # Save a checkpoint every 100 episodes
-                torch.save({
-                    'episode': episode,
-                    'model_state_dict': self.q_network.state_dict(),
-                    'reward': episode_reward,
-                    'config': self.config.dict()
-                }, self.models_dir / f'checkpoint_dqn_episode_{episode}.pth')
+                checkpoint_file = self.models_dir / f'checkpoint_dqn_episode_{episode}.pth'
+                self.save_checkpoint(self.q_network, episode, episode_reward, checkpoint_file)
 
-            # At the end of training, save final model
             if episode == self.config.episodes - 1:
-                torch.save({
-                    'episode': episode,
-                    'model_state_dict': self.q_network.state_dict(),
-                    'reward': episode_reward,
-                    'config': self.config.dict()
-                }, self.models_dir / 'final_dqn_model.pth')
+                final_file = self.models_dir / 'final_dqn_model.pth'
+                self.save_checkpoint(self.q_network, episode, episode_reward, final_file)
 
-            print(
+            self.logger.info(
                 f"Episode {episode}/{self.config.episodes} "
                 f"({(episode + 1) / self.config.episodes:.1%} complete) | "
                 f"Reward: {episode_reward:.2f} | "
                 f"Loss: {avg_loss:.4f} | "
-                f"Epsilon: {epsilon:.4f} | "
-                f"Best: {self.best_reward:.2f}"
+                f"Best: {self.best_reward:.2f} | "
+                f"Epsilon: {epsilon}"
             )
-            wandb.log({"episode": episode, "reward": episode_reward, "avg_loss": avg_loss, "epsilon": epsilon, "best_reward": self.best_reward})
 
-        print(f"Training completed at {datetime.now().isoformat()}")
-        print(f"Best reward achieved: {self.best_reward}")
+            self.log_metrics(episode, episode_reward, avg_loss, self.best_reward, extra={"epsilon": epsilon})
 
-    def evaluate(self):
-        # TODO: Implement evaluation logic here
+        self.logger.info(f"Training completed at {datetime.now().isoformat()}")
+        self.logger.info(f"Best reward achieved: {self.best_reward}")
+
+    def evaluate(self) -> None:
+        self.logger.info("Evaluation not implemented yet.")
         pass

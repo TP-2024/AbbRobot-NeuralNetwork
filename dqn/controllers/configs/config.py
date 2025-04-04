@@ -6,6 +6,8 @@ class BaseConfig(BaseModel):
     max_steps: int = Field(..., description="Maximum number of steps per episode")
     learning_rate: float = Field(..., description="Learning rate for the optimizer")
     gamma: float = Field(..., description="Discount factor for future rewards")
+    wandb_project: str = Field("robot-training", description="WandB project name")
+    wandb_entity: str = Field("ilya-koyushev1-org", description="WandB entity")
 
 
 class DQNConfig(BaseConfig):
