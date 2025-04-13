@@ -1,9 +1,11 @@
 import os
 import tempfile
-from typing import Tuple
+from typing import Any
 
 import numpy as np
 from ikpy.chain import Chain
+from numpy import ndarray, floating
+
 from controller import Supervisor
 import logging
 
@@ -102,7 +104,7 @@ class ArmEnv(Supervisor):
 
         super().step(self.time_step * 10)  # Wait for the robot to settle.
         self.acc_dist = 0.0
-        current_pen = self._get_pen_position()
+        current_pen = self.get_pen_position()
         self.start_dist = np.linalg.norm(np.array(self.target_position) - current_pen)
         self.prev_dist = self.start_dist
         self.prev_axis_dists = np.abs(np.array(self.target_position) - current_pen)
@@ -110,18 +112,19 @@ class ArmEnv(Supervisor):
 
         return self._get_state()
 
-    def step(self, action: int = None) -> Tuple[np.ndarray, float, bool, dict]:
+    def step(self, action: int = None) -> tuple[
+        ndarray, floating[Any], bool, dict[str, int | floating[Any] | bool | float]
+    ]:
         """
         Applies an action and returns the new state, reward, done flag, and additional info.
         """
-        prev_pos = self._get_pen_position()
+        prev_pen_pos = self.get_pen_position()
 
         joint_index = action // 2
         direction = 1 if action % 2 == 1 else -1
-        current_position = self.motors[joint_index].getPositionSensor().getValue()
+        current_joint_position = self.motors[joint_index].getPositionSensor().getValue()
 
-        current_pos = self._get_pen_position()
-        distance_to_target = np.linalg.norm(np.array(self.target_position) - current_pos)
+        distance_to_target = np.linalg.norm(np.array(self.target_position) - prev_pen_pos)
         base_step = 0.05
         if distance_to_target > 1.0:
             step_size = base_step * 1.5
@@ -130,16 +133,16 @@ class ArmEnv(Supervisor):
         else:
             step_size = base_step
 
-        new_position = current_position + direction * step_size
+        new_joint_position = current_joint_position + direction * step_size
         lower_limit, upper_limit = self.JOINT_LIMITS[joint_index]
-        new_position = np.clip(new_position, lower_limit, upper_limit)
+        new_position = np.clip(new_joint_position, lower_limit, upper_limit)
         self.motors[joint_index].setPosition(new_position)
         super().step(self.time_step)
 
         self.current_step += 1
-        current_pos = self._get_pen_position()
+        current_pos = self.get_pen_position()
         current_dist = np.linalg.norm(np.array(self.target_position) - current_pos)
-        step_dist = np.linalg.norm(current_pos - prev_pos)
+        step_dist = np.linalg.norm(current_pos - prev_pen_pos)
         self.acc_dist += step_dist
 
         current_axis_dists = np.abs(np.array(self.target_position) - current_pos)
@@ -151,25 +154,18 @@ class ArmEnv(Supervisor):
             else:
                 r = -np.exp(-self.lambda_scale * (current_axis_dists[i] ** 2))
             reward_components.append(r)
-        r1 = np.mean(reward_components)
+        reward = np.mean(reward_components)
 
+        success = False
         if current_dist < 0.01:
-            bonus = 100.0
+            reward += 100.0
             success = True
-        else:
-            bonus = 0.0
-            success = False
-
-        reward = r1 + bonus
 
         if self._is_collision():
             reward -= 5.0  # Must not be bigger than ~20 so not to overwhelm main reward
 
         if self.current_step >= self.max_steps and not success:
             reward -= 15.0  # Terminal penalty for not reaching the goal
-            done = False
-        else:
-            done = success
 
         self.prev_axis_dists = current_axis_dists
         self.prev_dist = current_dist
@@ -181,7 +177,7 @@ class ArmEnv(Supervisor):
             'goal_reached': success
         }
 
-        return self._get_state(), reward, done, info
+        return self._get_state(), reward, success, info
 
     def _get_state(self) -> np.ndarray:
         """
@@ -193,13 +189,13 @@ class ArmEnv(Supervisor):
             low, high = self.JOINT_LIMITS[i]
             norm_pos = 2.0 * (pos - low) / (high - low) - 1.0
             normalized_positions.append(norm_pos)
-        pen_pos = self._get_pen_position()
+        pen_pos = self.get_pen_position()
         target_vector = np.array(self.target_position) - pen_pos
         norm_target = target_vector / (np.linalg.norm(target_vector) + 1e-8)
         state = np.concatenate([normalized_positions, norm_target])
         return state.astype(np.float32)
 
-    def _get_pen_position(self) -> np.ndarray:
+    def get_pen_position(self) -> np.ndarray:
         """
         Returns the pen tip position.
         """

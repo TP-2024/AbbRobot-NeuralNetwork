@@ -4,6 +4,7 @@
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS configuration
     source venv/bin/activate
+    source .venv/bin/activate
     export QT_PLUGIN_PATH=/Applications/Webots.app/Contents/MacOS/plugins
     export WEBOTS_HOME=/Applications/Webots.app/Contents
     if [[ "$1" == "train" ]]; then

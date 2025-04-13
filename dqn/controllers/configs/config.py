@@ -12,6 +12,7 @@ class BaseConfig(BaseModel):
 
 class DQNConfig(BaseConfig):
     batch_size: int = Field(..., description="Batch size for sampling from the replay buffer")
+    final_distance: float = Field(..., description="Final distance when robot touched the wanted radius")
     epsilon_start: float = Field(..., description="Starting epsilon value for epsilon-greedy action selection")
     epsilon_end: float = Field(..., description="Minimum epsilon value")
     epsilon_decay: float = Field(..., description="Decay factor for epsilon per episode")

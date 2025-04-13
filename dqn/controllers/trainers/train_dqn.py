@@ -2,17 +2,17 @@ import os
 import random
 from datetime import datetime
 from pathlib import Path
-from typing import Tuple, Any
+from typing import Any
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from dqn.controllers.utils.arm_env import ArmEnv
 from dqn.controllers.networks.dqn_model import QNetwork
-from dqn.controllers.utils.replay_buffer import PrioritizedReplay
 from dqn.controllers.trainers.base_trainer import BaseTrainer
+from dqn.controllers.utils.arm_env import ArmEnv
+from dqn.controllers.utils.replay_buffer import PrioritizedReplay
 
 
 class DQNTrainer(BaseTrainer):
@@ -21,7 +21,7 @@ class DQNTrainer(BaseTrainer):
     """
     def __init__(self, config: Any) -> None:
         super().__init__(config)
-        BaseTrainer.init_wandb(config.wandb_project, config.wandb_entity, config.dict())
+        self.init_wandb(config.wandb_project, config.wandb_entity, config.dict())
 
         script_dir = Path(__file__).parent.parent
         self.models_dir = script_dir / 'models'
@@ -32,7 +32,7 @@ class DQNTrainer(BaseTrainer):
         self.device = BaseTrainer.get_device()
         self.logger.info(f"Using device: {self.device}")
 
-        self.env = ArmEnv.initialize_supervisor(self.config.max_steps)
+        self.env = ArmEnv.initialize_supervisor(self.config.max_steps, self.config.final_distance)
         self.state_dim = len(self.env.motors) + 3
         self.action_dim = len(self.env.motors) * 2
 
@@ -57,16 +57,22 @@ class DQNTrainer(BaseTrainer):
             episode_reward = 0
             episode_loss = 0
             num_steps = 0
+            info = {
+                'distance': np.linalg.norm(np.array(self.env.target_position) - self.env.get_pen_position())
+            }
 
             for step in range(self.config.max_steps):
-                epsilon = max(self.config.epsilon_end,
-                              self.config.epsilon_start * (self.config.epsilon_decay ** episode))
+                epsilon = max(
+                    self.config.epsilon_end, self.config.epsilon_start * (self.config.epsilon_decay ** episode)
+                )
+
+                allowed_action_dim = 5 if info['distance'] > 0.2 else self.action_dim
                 if random.random() < epsilon:
-                    action = random.randint(0, self.action_dim - 1)
+                    action = random.randint(0, allowed_action_dim)
                 else:
                     with torch.no_grad():
                         q_values = self.q_network(state.unsqueeze(0))
-                        action = q_values.argmax().item()
+                        action = q_values[0, :allowed_action_dim].argmax().item()
 
                 next_state, reward, done, info = self.env.step(action)
                 next_state = torch.tensor(next_state, dtype=torch.float32).to(self.device)
