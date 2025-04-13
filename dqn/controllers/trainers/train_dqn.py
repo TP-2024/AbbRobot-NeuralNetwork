@@ -21,7 +21,7 @@ class DQNTrainer(BaseTrainer):
     """
     def __init__(self, config: Any) -> None:
         super().__init__(config)
-        self.init_wandb(config.wandb_project, config.wandb_entity, config.dict())
+        # self.init_wandb(config.wandb_project, config.wandb_entity, config.dict())
 
         script_dir = Path(__file__).parent.parent
         self.models_dir = script_dir / 'models'
@@ -32,7 +32,7 @@ class DQNTrainer(BaseTrainer):
         self.device = BaseTrainer.get_device()
         self.logger.info(f"Using device: {self.device}")
 
-        self.env = ArmEnv.initialize_supervisor(self.config.max_steps, self.config.final_distance)
+        self.env = ArmEnv.initialize_supervisor(self.config.max_steps)
         self.state_dim = len(self.env.motors) + 3
         self.action_dim = len(self.env.motors) * 2
 
@@ -143,7 +143,7 @@ class DQNTrainer(BaseTrainer):
                 f"Epsilon: {epsilon}"
             )
 
-            self.log_metrics(episode, episode_reward, avg_loss, self.best_reward, extra={"epsilon": epsilon})
+            # self.log_metrics(episode, episode_reward, avg_loss, self.best_reward, extra={"epsilon": epsilon})
 
         self.logger.info(f"Training completed at {datetime.now().isoformat()}")
         self.logger.info(f"Best reward achieved: {self.best_reward}")
