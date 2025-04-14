@@ -15,8 +15,7 @@ def parse_args() -> Any:
     parser = argparse.ArgumentParser(description='Robot Arm Controller')
     parser.add_argument('--mode', default='train', choices=['train', 'run'], help='Mode of operation: train or run')
     parser.add_argument('--method', type=str, default='dqn', choices=['dqn', 'pg', 'ac'], help='Training method to use')
-    parser.add_argument('--config', type=str, default='configs/dqn_config.yaml', help="Configuration YAML file"
-    )
+    parser.add_argument('--config', type=str, default='configs/dqn_config.yaml', help="Configuration YAML file")
     return parser.parse_args()
 
 def main() -> None:

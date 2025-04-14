@@ -21,7 +21,7 @@ class DQNTrainer(BaseTrainer):
     """
     def __init__(self, config: Any) -> None:
         super().__init__(config)
-        # self.init_wandb(config.wandb_project, config.wandb_entity, config.dict())
+        self.init_wandb(config.wandb_project, config.wandb_entity, config.dict())
 
         script_dir = Path(__file__).parent.parent
         self.models_dir = script_dir / 'models'
@@ -66,7 +66,7 @@ class DQNTrainer(BaseTrainer):
                     self.config.epsilon_end, self.config.epsilon_start * (self.config.epsilon_decay ** episode)
                 )
 
-                allowed_action_dim = 5 if info['distance'] > 0.2 else self.action_dim
+                allowed_action_dim = 5 if info['distance'] > 0.2 else self.action_dim - 1
                 if random.random() < epsilon:
                     action = random.randint(0, allowed_action_dim)
                 else:
@@ -143,7 +143,7 @@ class DQNTrainer(BaseTrainer):
                 f"Epsilon: {epsilon}"
             )
 
-            # self.log_metrics(episode, episode_reward, avg_loss, self.best_reward, extra={"epsilon": epsilon})
+            self.log_metrics(episode, episode_reward, avg_loss, self.best_reward, extra={"epsilon": epsilon})
 
         self.logger.info(f"Training completed at {datetime.now().isoformat()}")
         self.logger.info(f"Best reward achieved: {self.best_reward}")
