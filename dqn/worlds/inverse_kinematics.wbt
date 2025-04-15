@@ -1,23 +1,24 @@
-#VRML_SIM R2025a utf8
+#VRML_SIM R2023b utf8
 
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/Floor.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/ThreadMetalPlate.proto"
-EXTERNPROTO "../worlds/protos/Irb4600-40.proto"
+EXTERNPROTO "C:/Users/Jarko/Documents/TP_2025/dqn/worlds/protos/Irb4600-40.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/BrushedAluminium.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/tables/protos/Table.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/OldSteel.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/GalvanizedMetal.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/drinks/protos/Can.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/conveyors/protos/ConveyorBelt.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/pipes/protos/PipeSection.proto"
 
 WorldInfo {
   basicTimeStep 16
 }
 Viewpoint {
   fieldOfView 0.85
-  orientation 0.1522115868222853 -0.14267314196381076 -0.977995913794744 4.954544961465034
-  position -6.449089723737807 -6.601691201406192 3.7529909831550157
+  orientation 0.05173294598680572 -0.06765133316852477 -0.9963669000022267 4.973985775290853
+  position -7.8280544431056 -10.83142858353752 2.9407328532532553
   follow "robot:IRB 4600/40:solid:solid:solid:solid:solid:solid:pen"
   followType "Pan and Tilt Shot"
 }
@@ -222,4 +223,10 @@ DEF CONVEYOR_BELT ConveyorBelt {
   rotation 0 0 1 -1.5707953071795862
   size 1.6 0.5 0.6
   speed 1
+}
+PipeSection {
+  translation -5.4 -1.14 2.3
+  height 1
+  radius 0.05
+  subdivision 10
 }
