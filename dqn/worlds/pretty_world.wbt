@@ -1,0 +1,237 @@
+#VRML_SIM R2023b utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/Floor.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/ThreadMetalPlate.proto"
+EXTERNPROTO "C:/Users/Jarko/Documents/TP_2025/dqn/worlds/protos/Irb4600-40.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/BrushedAluminium.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/tables/protos/Table.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/OldSteel.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/GalvanizedMetal.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/drinks/protos/Can.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/conveyors/protos/ConveyorBelt.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/apartment_structure/protos/Wall.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/forklift/protos/Forklift.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/pallet/protos/WoodenPallet.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/pallet/protos/WoodenPalletStack.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/fire_extinguisher/protos/FireExtinguisher.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/containers/protos/CardboardBox.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/tools/protos/PaintBucket.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/stairs/protos/StraightStairs.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/samples/contests/rockin/protos/RoCKInShelf.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/apartment_structure/protos/Door.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/hospital/protos/EmergencyExitSign.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/lights/protos/FloorLight.proto"
+
+WorldInfo {
+  basicTimeStep 16
+}
+Viewpoint {
+  fieldOfView 0.85
+  orientation -0.1415123082051293 0.18044394018739762 0.9733520694363902 1.3564331347006138
+  position -7.644364640766951 -11.071073686653047 5.069894447326366
+  follow "robot:IRB 4600/40:solid:solid:solid:solid:solid:solid:pen"
+  followType "Pan and Tilt Shot"
+}
+TexturedBackground {
+  texture "empty_office"
+}
+PointLight {
+  attenuation 0 0 1
+  intensity 10
+  location -5 4 6
+  castShadows TRUE
+}
+PointLight {
+  attenuation 0 0 1
+  intensity 10
+  location -5 -5 6
+}
+DEF FLOOR Floor {
+  translation -4.3 0 0
+  size 13 13
+  tileSize 1 1
+  appearance ThreadMetalPlate {
+  }
+}
+Irb4600-40 {
+  translation -4.84 0 0.55
+  rotation 0 0 -1 1.5708
+  controller "<extern>"
+  supervisor TRUE
+  handSlot [
+    DEF PEN Pen {
+      translation 0 0 0.02
+      rotation 0 1 0 3.14159
+      children [
+        Pose {
+          translation 0 0 0.05
+          children [
+            Shape {
+              appearance BrushedAluminium {
+                colorOverride 0 0.4131074998092622 0.9919279774166476
+              }
+              geometry Cylinder {
+                height 0.05
+                radius 0.04
+                subdivision 24
+              }
+            }
+          ]
+        }
+        Pose {
+          translation 0 0 0.04
+          children [
+            Shape {
+              appearance BrushedAluminium {
+                colorOverride 0 0 0
+              }
+              geometry Cylinder {
+                height 0.07
+                radius 0.01
+                subdivision 12
+              }
+            }
+          ]
+        }
+      ]
+      leadSize 0.01
+      maxDistance 0.05
+    }
+  ]
+  staticBase TRUE
+}
+DEF ROBOT_TABLE Table {
+  translation -4.84 -0.04 0
+  size 1 1 0.55
+  feetPadding 0.05
+  frameThickness 0.1
+  trayAppearance OldSteel {
+    textureTransform TextureTransform {
+      scale 2 2
+    }
+  }
+  legAppearance GalvanizedMetal {
+  }
+}
+Can {
+  translation -5.82 -1.09 0.7
+}
+DEF CONVEYOR_BELT ConveyorBelt {
+  translation -5.02 -1.09 0
+  rotation 0 0 1 1.01503e-06
+  size 4 0.5 0.6
+  speed 0
+}
+Wall {
+  translation 2.3 0 0
+  size 0.2 13 3.5
+}
+Wall {
+  translation -4.3 6.6 0
+  rotation 0 0 1 -1.5707953071795862
+  name "wall(3)"
+  size 0.2 13 3.5
+}
+Wall {
+  translation -10.9 0 0
+  name "wall(1)"
+  size 0.2 13 3.5
+}
+Forklift {
+  translation 0.28695 1.54136 0.81
+  rotation 0 0 1 2.35619
+}
+WoodenPallet {
+  translation -0.39 5.9 0.14
+}
+WoodenPallet {
+  translation -0.44 5.92 0
+  name "wooden pallet(2)"
+}
+WoodenPallet {
+  translation -0.748051 2.58329 0.06
+  rotation 0 0 1 0.785398
+  name "wooden pallet(1)"
+}
+WoodenPalletStack {
+  translation -1.76 5.91 0
+}
+WoodenPalletStack {
+  translation -1.76 5.91 1.12
+  name "wooden pallet stack(3)"
+}
+WoodenPalletStack {
+  translation -3.06 5.91 0
+  name "wooden pallet stack(1)"
+}
+WoodenPalletStack {
+  translation -4.38 5.94 0
+  name "wooden pallet stack(2)"
+}
+FireExtinguisher {
+  translation 1.84 6.33 0.95
+  rotation 0 0 1 1.5708
+}
+CardboardBox {
+  translation -6.91 6.02 0.3
+}
+CardboardBox {
+  translation -6.09 6.02 0.3
+  rotation 0 0 1 0.261799
+  name "cardboard box(1)"
+}
+CardboardBox {
+  translation -6.53 6.02 0.9
+  rotation 0 0 1 -0.261795307179586
+  name "cardboard box(2)"
+}
+CardboardBox {
+  translation -7.64 6.02 0.3
+  rotation 0 0 1 2.0944
+  name "cardboard box(3)"
+}
+PaintBucket {
+  translation 1.97 2.72 1.77
+  rotation 0 0 1 0.785398
+}
+PaintBucket {
+  translation 1.97 3.01 1.77
+  rotation 0 0 1 0.785398
+  name "paint bucket(1)"
+}
+PaintBucket {
+  translation 1.97 2.14 1.77
+  rotation 0 0 1 -1.047195307179586
+  name "paint bucket(2)"
+}
+StraightStairs {
+  translation -10.2 4.70001 0
+  rotation 0 0 1 1.5708
+}
+RoCKInShelf {
+  translation 2 2.22 1.25
+}
+RoCKInShelf {
+  translation 2 2.82 1.25
+  name "RoCKIn shelf(1)"
+}
+RoCKInShelf {
+  translation 2 3.42 1.25
+  name "RoCKIn shelf(2)"
+}
+Door {
+  translation -10.22 6.64 0.75
+  rotation 0 0 1 -1.5707953071795862
+}
+EmergencyExitSign {
+  translation -10.22 6.42 2.95
+  rotation 1 0 0 1.5708
+}
+FloorLight {
+  translation -5.72 -0.63 0
+}
+FloorLight {
+  translation -3.92 -0.63 0
+  name "floor light(1)"
+}
